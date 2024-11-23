@@ -1,0 +1,69 @@
+version: latest
+
+services:
+  # Nginx Service
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    ports:
+      - "80:80" # Expose Nginx on localhost port 80
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app-network
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000" # Expose Next.js on port 3000
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  # Backend Service
+  backend:
+    deploy:
+      replicas: 3                # Run 3 replicas of the backend
+      restart_policy:
+        condition: on-failure    # Restart the container if it fails
+      update_config:
+        parallelism: 1           # Update one replica at a time during updates
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    expose:
+      - "5000"                   # Expose the port internally within the Docker network
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+  # Database Service (PostgreSQL)
+  db:
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    ports:
+      - "5432:5432" # Expose PostgreSQL on port 5432
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db-data:/var/lib/postgresql/data # Persistent storage for the database
+    networks:
+      - app-network
+
+volumes:
+  db-data: # Named volume for PostgreSQL data persistence
+
+networks:
+  app-network: # Common network for all services
